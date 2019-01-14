@@ -1,0 +1,19 @@
+(1)node installed and configured with Consul service
+
+query all the services that have been installed
+https://www.consul.io/api/agent/service.html
+
+List Services
+This endpoint returns all the services that are registered with the local agent. These services were either provided through configuration files or added dynamically using the HTTP API.
+
+It is important to note that the services known by the agent may be different from those reported by the catalog. This is usually due to changes being made while there is no leader elected. The agent performs active anti-entropy, so in most situations everything will be in sync within a few seconds.
+
+Method	Path	Produces
+GET	/agent/services	application/json
+The table below shows this endpoint's support for blocking queries, consistency modes, agent caching, and required ACLs.
+
+Blocking Queries	Consistency Modes	Agent Caching	ACL Required
+NO	none	none	service:read
+» Sample Request
+$ curl \
+    http://127.0.0.1:8500/v1/agent/services
