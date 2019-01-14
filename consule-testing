@@ -17,3 +17,46 @@ NO	none	none	service:read
 » Sample Request
 $ curl \
     http://127.0.0.1:8500/v1/agent/services
+    
+    
+    
+    For our demonstration, we will be configuring three servers and one client. Servers are used to handle queries and maintain a consistent view of the system. The client is also a member of the system, and can connect to the servers for information about the infrastructure. Clients may also contain services that will be monitored by consul.
+
+For the purposes of this guide, and this series as a whole, we will be configuring 4 computers. The first three will be consul servers as described above. The last one will be a consul agent that acts as a client and can be used to query information about the system.
+
+For us to implement some of the security mechanisms at a later point, we need to name all of our machines within a single domain. This is so that we can leverage a wildcard SSL certificate in the future.
+
+The details of our machines are here:
+
+Hostname	IP Address	Role
+server1.example.com	192.0.2.1	bootstrap consul server
+server2.example.com	192.0.2.2	consul server
+server3.example.com	192.0.2.3	consul server
+agent1.example.com	192.0.2.50	consul client
+We will be using 64-bit Ubuntu 14.04 servers for this demonstration, but any modern Linux server should work equally well.
+
+Starting the Bootstrap Server
+To begin working with consul, we need to get our consul servers up and running. When configuring this in the recommended multi-server environment, this step will have to be done in stages.
+
+The first thing we need to do is start the consul program on one of our servers in server and bootstrap mode. The server mode means that the consul will start up as a server instance instead of a client. The bootstrap option is used for the first server. This allows it to designate itself as the "leader" for the cluster without an election (since it will be the only server available).
+
+In the table that specifies our hosts, we designated our server1 as the bootstrap server. On server1, start the bootstrap instance by typing:
+
+consul agent -server -bootstrap -data-dir /tmp/consul
+The server will start up in the current terminal and log data will be output as events occur. Towards the end of the log data, you will see these lines:
+
+. . .
+2014/07/07 14:32:15 [ERR] agent: failed to sync remote state: No cluster leader
+2014/07/07 14:32:17 [WARN] raft: Heartbeat timeout reached, starting election
+2014/07/07 14:32:17 [INFO] raft: Node at 192.0.2.1:8300 [Candidate] entering Candidate state
+2014/07/07 14:32:17 [INFO] raft: Election won. Tally: 1
+2014/07/07 14:32:17 [INFO] raft: Node at 192.0.2.1:8300 [Leader] entering Leader state
+2014/07/07 14:32:17 [INFO] consul: cluster leadership acquired
+2014/07/07 14:32:17 [INFO] consul: New leader elected: server1.example.com
+2014/07/07 14:32:17 [INFO] consul: member 'server1.example.com' joined, marking health alive
+As you can see, no cluster leader was found since this is the initial node. However, since we enabled the bootstrap option, this server was able to enter the leader state by itself in order to initiate a cluster with a single host.
+
+Starting the Other Servers
+On server2 and server3, we can now start the consul service without the bootstrap option by typing:
+
+consul agent -server -data-dir /tmp/consul
