@@ -60,3 +60,213 @@ Starting the Other Servers
 On server2 and server3, we can now start the consul service without the bootstrap option by typing:
 
 consul agent -server -data-dir /tmp/consul
+
+
+
+Service Discovery And Other Cluster Management Techniques Using Consul
+PRABHU VIGNESH KUMAR RAJAGOPALOCTOBER 7, 20161 COMMENT
+Consul is a cluster management tool from Hashicorp and it is very useful for creating advanced micro-services architecture. Consul is a distributed configuration system which provides high availability, multi-data center, service discovery and High fault tolerance. So managing micro-services with Consul is pretty easy and simple.
+
+Current micro-service architecture based infrastructure has following challenges
+
+Uncertain service locations
+Service configurations
+Failure Detection
+Load balancing between multiple data-centers
+Since Consul is distributed and agent-based, It could solve all the above challenges easily.
+
+Consul Technology And Architecture
+Consul is an agent-based tool, which means it should be installed in each and every node of the cluster with servers and a client agent nodes. Hashicorp provides an open source binary package for installing Consul, and it can be downloaded from this (https://www.consul.io/downloads.html).
+
+To install Consul to all the nodes, we need to download the binary file and keep it in the bin folder (/etc/local/bin), so that we can run this from anywhere within the node.
+
+Consul needs to be started as a process and it will continuously shares information. For this, we should  start the agent on all the nodes and connect each other for communicating each other.
+
+Communication between nodes will be done through gossip protocol, Which means each node will send some data to other nodes like a virus and eventually to others.
+
+gossip
+Consul’s Gossip protocol and service discovery
+Before going to the demonstration, I would like to explain about the architecture of this tool. So basically agent will be started as servers within the nodes where services are running. and a client agent can be used for UI and query the information about the cluster of server. It is not necessary that client can not have the service within it.
+
+micro
+Microservice architecture with Consul
+To start the agent as a server, we need to mention server as a parameter.
+
+
+vagrant@consuldemo:~$<code>consul agent -server -data-dir /tmp/consul
+1
+vagrant@consuldemo:~$<code>consul agent -server -data-dir /tmp/consul
+Consul will not automatically join the cluster. It needs to be joined by mentioning the hostname or IP address of other nodes with each other.
+
+
+vagrant@consuldemo:~$ consul join 172.20.20.11
+1
+vagrant@consuldemo:~$ consul join 172.20.20.11
+Consul maintains the information about the cluster members, and this can be seen at all other instance’s console.
+
+
+vagrant@consuldemo:~$ consul members
+Node Address Status Type Build Protocol DC
+consuldemo <a href="http://172.28.128.16:8301">172.28.128.16:8301</a> alive server 0.6.4 2 dc1
+1
+2
+3
+vagrant@consuldemo:~$ consul members
+Node Address Status Type Build Protocol DC
+consuldemo <a href="http://172.28.128.16:8301">172.28.128.16:8301</a> alive server 0.6.4 2 dc1
+Consul exposes the information about the instance through API and because of this consul can be used for other infrastructural application, example dashboard, Monitoring tool or our own event management system.
+
+READ  How to Setup and Configure Hashicorp Vault Server - Detailed Beginners Guide
+
+vagrant@consuldemo:~$ curl localhost:8500/v1/catalog/nodes
+[{"Node":"consuldemo","Address":"172.28.128.16","TaggedAddresses":{"lan":"127.0.0.1","wan":"127.0.0.1"},"CreateIndex":4,"ModifyIndex":110}]
+1
+2
+vagrant@consuldemo:~$ curl localhost:8500/v1/catalog/nodes
+[{"Node":"consuldemo","Address":"172.28.128.16","TaggedAddresses":{"lan":"127.0.0.1","wan":"127.0.0.1"},"CreateIndex":4,"ModifyIndex":110}]
+Similarly, We can run the consul agent within the client and we need to join this client with the server clusters so that we setup our querying mechanism or dashboard or cluster monitoring.
+
+
+vagrant@consuldemo:~$<code>consul agent -data-dir /tmp/consul -client</code>172.28.128.17<code>-ui-dir /home/<span class="highlight">your_user</span>/dir -join 172.28.128.16
+1
+vagrant@consuldemo:~$<code>consul agent -data-dir /tmp/consul -client</code>172.28.128.17<code>-ui-dir /home/<span class="highlight">your_user</span>/dir -join 172.28.128.16
+Service discovery is an another great feature of consul. For our infrastructure services, we need to create separate service configuration file in JSON format for consul. service configuration file should be kept inside the consul.d configuration folder for getting identified by consul agent. so we need to create consul.d inside /etc/ folder.
+
+
+vagrant@consuldemo:~$ sudo mkdir /etc/consul.d
+1
+vagrant@consuldemo:~$ sudo mkdir /etc/consul.d
+Let us assume we have a service named as “nginx” and it is running on port 80. so we will create a service configuration file inside our consul.d folder for this service “nginx”
+
+
+vagrant@consuldemo:~$ echo '{"service": {"name": "nginx", "tags": ["rails"], "port": 80}}' \
+&gt;/etc/consul.d/nginx.json
+1
+2
+vagrant@consuldemo:~$ echo '{"service": {"name": "nginx", "tags": ["rails"], "port": 80}}' \
+&gt;/etc/consul.d/nginx.json
+Later when we are starting our agent, we can see our services which are mentioned inside consul.d folder also synced with the consul agent.
+
+
+vagrant@consuldemo:~$ consul agent -server -config-dir /etc/consul.d
+==&gt; Starting Consul agent...
+...
+[INFO] agent: Synced service 'nginx'
+...
+1
+2
+3
+4
+5
+vagrant@consuldemo:~$ consul agent -server -config-dir /etc/consul.d
+==&gt; Starting Consul agent...
+...
+[INFO] agent: Synced service 'nginx'
+...
+Which mean the service can be communicating with consul agent. So the availability of a node and health of the node can be shared across the cluster.
+
+We can query the service using either  DNS or HTTP API. If we are using DNS, then we need to use dig for query and DNS name will be like NODE_NAME.service.consul. If we are having multiple services with the same application, we can separate it with tags. And its DNS will be like TAG.NODE_NAME.service.consul. Since we have an internal DNS name within the cluster, we can manage DNS issue which usually occurs while load balancer fails.
+
+
+vagrant@consuldemo:~$ dig @<a href="http://127.0.0.1">127.0.0.1</a> -p 8600 web.service.consul
+...
+;; QUESTION SECTION:
+;web.service.consul. IN A
+
+;; ANSWER SECTION:
+web.service.consul. 0 IN A 172.20.20.11
+1
+2
+3
+4
+5
+6
+7
+vagrant@consuldemo:~$ dig @<a href="http://127.0.0.1">127.0.0.1</a> -p 8600 web.service.consul
+...
+;; QUESTION SECTION:
+;web.service.consul. IN A
+ 
+;; ANSWER SECTION:
+web.service.consul.  IN A 172.20.20.11
+If we use HTTP API for querying the service then it will be like
+
+READ  Are Managed Service Providers About to Put DevOps Out to Pasture
+
+vagrant@consuldemo:~$ curl http://localhost:8500/v1/catalog/service/nginx
+[{"Node":"consuldemo","Address":"172.28.128.16","ServiceID":"nginx", \
+"ServiceName":"nginx","ServiceTags":["rails"],"ServicePort":80}]
+1
+2
+3
+vagrant@consuldemo:~$ curl http://localhost:8500/v1/catalog/service/nginx
+[{"Node":"consuldemo","Address":"172.28.128.16","ServiceID":"nginx", \
+"ServiceName":"nginx","ServiceTags":["rails"],"ServicePort":80}]
+So here we could see how it can be helpful for service discovery right..?
+
+Just like Service discovery, Health checking of nodes is also taken care by this consul. Consul could expose the status of the node so that we could easily find the solution for failure detection among the nodes. For this example, i am manually crashing the server
+
+
+vagrant@consuldemo:~$ curl <a href="http://localhost:8500/v1/health/state/critical">http://localhost:8500/v1/health/state/critical</a>
+[{"Node":"my-first-agent","CheckID":"service:nagix","Name":"Service 'nginx' check","Status":"critical","Notes":"","ServiceID":"nginx","ServiceName":"nginx"}]
+1
+2
+vagrant@consuldemo:~$ curl <a href="http://localhost:8500/v1/health/state/critical">http://localhost:8500/v1/health/state/critical</a>
+[{"Node":"my-first-agent","CheckID":"service:nagix","Name":"Service 'nginx' check","Status":"critical","Notes":"","ServiceID":"nginx","ServiceName":"nginx"}]
+Usually, infrastructural configurations are stored with key/value pair since consul provides that we could use it for dynamic configurations.
+for example:
+
+
+vagrant@consuldemo:~$ curl -X PUT -d 'test' http://localhost:8500/v1/kv/nginx/key1
+true
+vagrant@consuldemo:~$ curl -X PUT -d 'test' http://localhost:8500/v1/kv/nginx/key2?flags=42
+true
+vagrant@consuldemo:~$ curl -X PUT -d 'test' http://localhost:8500/v1/kv/nginx/sub/key3
+true
+vagrant@consuldemo:~$ curl http://localhost:8500/v1/kv/?recurse
+[{"CreateIndex":97,"ModifyIndex":97,"Key":"nginx/key1","Flags":0,"Value":"dGVzdA=="},
+{"CreateIndex":98,"ModifyIndex":98,"Key":"nginx/key2","Flags":42,"Value":"dGVzdA=="},
+{"CreateIndex":99,"ModifyIndex":99,"Key":"nginx/sub/key3","Flags":0,"Value":"dGVzdA=="}]
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+vagrant@consuldemo:~$ curl -X PUT -d 'test' http://localhost:8500/v1/kv/nginx/key1
+true
+vagrant@consuldemo:~$ curl -X PUT -d 'test' http://localhost:8500/v1/kv/nginx/key2?flags=42
+true
+vagrant@consuldemo:~$ curl -X PUT -d 'test' http://localhost:8500/v1/kv/nginx/sub/key3
+true
+vagrant@consuldemo:~$ curl http://localhost:8500/v1/kv/?recurse
+[{"CreateIndex":97,"ModifyIndex":97,"Key":"nginx/key1","Flags":,"Value":"dGVzdA=="},
+{"CreateIndex":98,"ModifyIndex":98,"Key":"nginx/key2","Flags":42,"Value":"dGVzdA=="},
+{"CreateIndex":99,"ModifyIndex":99,"Key":"nginx/sub/key3","Flags":,"Value":"dGVzdA=="}]
+Since key/value pair configuration is more effective for infrastructure, this will be the distributed asynchronous – ly solution of centralized dynamic configuration.
+
+The big feature of consul is UI for everything. We can check health of cluster members, store/delete key/values in consul, service management etc.. to get this dashboard go to the browser
+
+http://consul_client_IP:8500/ui
+
+And for live demo consul provides demo dashboard[link]{https://demo.consul.io/ui/}
+
+Setting Up Consul Using Anisble
+For installation and basic configuration, download the ansible role and simply run the sample playbook from here (https://github.com/PrabhuVignesh/consul_installer).
+
+OR
+
+Download ansible role from ansible-galaxy:
+
+
+-$ ansible-galaxy install PrabhuVignesh.consul_installer
+1
+-$ ansible-galaxy install PrabhuVignesh.consul_installer
+Or simply download the ansible playbook with Vagrant file from here (https://github.com/PrabhuVignesh/consul_experiment) and just follow the instructions from the README.md file.
+
+Conclusion
+Converting your application into microservices is not a big deal. Making it as a scalable application is always a challenging thing. This challenges can be solved if we can able to combine tools like Consul, serf, messaging queue tools together. This will make your microservices scalable, Fault tolerant and highly available for Zero downtime application.
