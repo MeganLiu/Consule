@@ -1,0 +1,16 @@
+(1)ec2 instance installed with consul and configure as client
+
+$ssh -i "key.pem" ec2-user@ip
+#make the directory
+$sudo mkdir /etc/consul.d
+# client join server cluster 
+$consul agent -data-dir /tmp/consul -client client-ip -join server-ip -datacenter default
+$consul members -rpc-addr=server-ip:8400
+
+(2)ec2 instance installed with consul and configure with service se
+to query all the consule cluster service
+$curl localhost:8500/v1/catalog/nodes
+
+$consul members
+## query for specific service
+$curl http://localhost:8500/v1/catalog/service/service-name-here
